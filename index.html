@@ -156,6 +156,32 @@
     .cta-content { padding: 64px 6%; }
     nav { padding: 14px 24px; }
   }
+
+  /* ── RESULTADOS ENCUESTAS ── */
+  .results-section { background: #e0cba8; padding: 80px 6%; }
+  .results-inner { max-width: 920px; margin: 0 auto; }
+  .results-tag { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 3px; text-transform: uppercase; color: var(--accent2); display: block; margin-bottom: 10px; }
+  .results-title { font-family: 'Bebas Neue', sans-serif; font-size: clamp(30px, 4vw, 52px); letter-spacing: 3px; color: #2d0f00; margin-bottom: 8px; }
+  .results-sub { font-size: 14px; color: rgba(60,20,0,0.65); margin-bottom: 6px; }
+  .results-total-line { font-family: 'Space Mono', monospace; font-size: 11px; color: rgba(60,20,0,0.55); margin-bottom: 40px; }
+  .results-total-line strong { color: var(--accent2); font-size: 14px; }
+  .survey-block { margin-bottom: 44px; }
+  .survey-block-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 14px; flex-wrap: wrap; }
+  .survey-block-name { font-family: 'Bebas Neue', sans-serif; font-size: 20px; letter-spacing: 2px; color: #2d0f00; }
+  .survey-block-n { font-family: 'Space Mono', monospace; font-size: 10px; color: var(--accent2); padding: 2px 8px; background: rgba(196,98,42,0.12); }
+  .q-block { background: rgba(255,255,255,0.3); border: 1px solid rgba(196,98,42,0.15); padding: 18px 20px; margin-bottom: 10px; }
+  .q-text { font-family: 'Space Mono', monospace; font-size: 10px; letter-spacing: 0.3px; color: rgba(60,20,0,0.7); margin-bottom: 12px; line-height: 1.55; }
+  .bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .bar-lbl { width: 210px; flex-shrink: 0; font-size: 11px; color: rgba(60,20,0,0.75); line-height: 1.3; }
+  .bar-track { flex: 1; height: 7px; background: rgba(196,98,42,0.1); }
+  .bar-fill { height: 100%; background: var(--accent); min-width: 0; transition: width 0.5s ease; }
+  .bar-fill.winner { background: var(--accent2); }
+  .bar-pct { width: 34px; font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(60,20,0,0.55); text-align: right; }
+  .results-reset { font-family: 'Space Mono', monospace; font-size: 10px; color: rgba(60,20,0,0.4); background: none; border: none; cursor: pointer; padding: 0; margin-top: 8px; text-decoration: underline; }
+  .results-reset:hover { color: var(--accent2); }
+  @media (max-width: 900px) {
+    .bar-lbl { width: 130px; font-size: 10px; }
+  }
 </style>
 </head>
 <body>
@@ -255,6 +281,16 @@
   <div class="cta-img-panel"></div>
 </section>
 
+<!-- RESULTADOS ENCUESTAS -->
+<section id="results-section" class="results-section" style="display:none">
+  <div class="results-inner">
+    <span class="results-tag">📊 Análisis de respuestas</span>
+    <h2 class="results-title">LO QUE NOS CONTÁIS</h2>
+    <p class="results-sub">Datos globales de todos los usuarios que han completado las encuestas.</p>
+    <p class="results-total-line">Respuestas totales recibidas: <strong id="results-total-count">—</strong></p>
+    <div id="results-content"></div>
+  </div>
+</section>
 
 <!-- ─── SURVEY MODALS ─── -->
 
@@ -427,6 +463,9 @@
     <span style="color:rgba(60,20,0,0.4);margin:0 4px">·</span>
     <span style="font-size:16px">📊</span>
     <a href="https://datastudio.google.com/s/vmU7THwQfIs" target="_blank">Ver estadísticas</a>
+    <span style="color:rgba(60,20,0,0.4);margin:0 4px">·</span>
+    <span style="font-size:14px">📈</span>
+    <a href="#results-section" onclick="showAnalysis(event)">Análisis encuestas</a>
   </div>
   <p>© 2026 Frutopía · Todos los derechos reservados</p>
 </footer>
@@ -436,6 +475,10 @@
   const EMAILJS_PUBLIC_KEY  = 'Jr5GCYt3tolCxIEnp';
   const EMAILJS_SERVICE_ID  = 'Frutopia';
   const EMAILJS_TEMPLATE_ID = 'template_ou5vs91';
+
+  // ─── GOOGLE SHEETS WEBHOOK ───────────────────────────────────
+  // Pega aquí la URL de tu Apps Script desplegado (sheets-collector.gs)
+  const SHEETS_WEBHOOK_URL = 'https://script.google.com/macros/s/AKfycby2SHK7FkavJ7f31H38fZtk9NewlQWQbnXl2_tA2o6nKLwwEh1pJ5NHejzbgRp3A3q5Pg/exec';
 
   (function() { emailjs.init({ publicKey: EMAILJS_PUBLIC_KEY }); })();
 
@@ -447,6 +490,87 @@
       });
     });
   });
+
+  // ─── METADATOS DE ENCUESTAS ──────────────────────────────────────
+  const SURVEY_META = {
+    energy: {
+      icon: '⚡', label: 'Energía durante el día',
+      questions: {
+        energy:   { text: '¿Cuántas veces te quedas sin energía al día?',         opts: { never:'Casi nunca', once:'1-2 veces (tarde)', often:'Varias veces (entre clases)', always:'Constantemente' } },
+        energy_2: { text: '¿Qué haces cuando necesitas un extra de energía?',     opts: { coffee:'Café o bebida energética', sweet:'Dulce o bollería', natural:'Fruta u algo natural', nothing:'Aguanto sin hacer nada' } },
+        energy_3: { text: '¿Cuánto valoras la energía duradera en un snack?',     opts: { key:'Es lo más importante', pref:'Lo valoro, no prioritario', neutral:'Me da igual', taste:'Prefiero rico sin energía' } }
+      }
+    },
+    time: {
+      icon: '⏱️', label: 'Hábitos de tiempo',
+      questions: {
+        time:   { text: '¿Con qué frecuencia te saltas comidas por falta de tiempo?', opts: { never:'Nunca', sometimes:'A veces (1-2/semana)', often:'Con frecuencia', always:'Casi siempre' } },
+        time_2: { text: '¿Cuánto tardas en decidir qué comer entre clases?',           opts: { instant:'< 1 minuto', some:'5-10 minutos', long:'> 10 minutos', nope:'Sin tiempo ni para pensar' } },
+        time_3: { text: '¿Qué acabas comiendo cuando vas con prisa?',                  opts: { machine:'Lo primero que encuentro', nothing:'Nada — paso directamente', prepared:'Algo preparado de casa', healthy:'Fruta u snack saludable' } }
+      }
+    },
+    snack: {
+      icon: '🎒', label: 'Snacks en la mochila',
+      questions: {
+        snack:   { text: '¿Qué sueles llevar habitualmente en la mochila?',              opts: { bars:'Barritas o bollería industrial', dried:'Frutos secos / fruta deshidratada', fresh:'Fruta fresca', nothing:'Nada — máquina o no como' } },
+        snack_2: { text: '¿Con qué frecuencia comes algo mientras caminas o en clase?', opts: { never:'Nunca', sometimes:'A veces', often:'Con frecuencia', always:'Siempre' } },
+        snack_3: { text: '¿Qué es lo más importante al elegir un snack para llevar?',  opts: { noprep:'Sin preparación', size:'Que quepa sin molestar', nospill:'Que no ensucie', nofridge:'Sin nevera todo el día' } }
+      }
+    },
+    natural: {
+      icon: '🍎', label: 'Ingredientes naturales',
+      questions: {
+        natural:   { text: '¿Lees los ingredientes antes de comprar un snack?',       opts: { always:'Siempre', sometimes:'A veces', rarely:'Rara vez', never:'Nunca' } },
+        natural_2: { text: '¿Cuánto te importa que los ingredientes sean naturales?', opts: { key:'Mucho — lo elijo por eso', pref:'Bastante — si precio similar', low:'Poco — si es rico me vale', no:'Nada' } },
+        natural_3: { text: '¿Qué ingrediente artificial te genera más rechazo?',      opts: { sugar:'Azúcares añadidos', preserv:'Conservantes y colorantes', oils:'Aceites vegetales refinados', none:'Ninguno' } }
+      }
+    }
+  };
+
+  // ─── ENVIAR A GOOGLE SHEETS ────────────────────────────────────
+  function sendToSheets(type, answers) {
+    if (!SHEETS_WEBHOOK_URL) return;
+    fetch(SHEETS_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ts: new Date().toISOString(), type, answers })
+    }).catch(() => {});
+  }
+
+  // ─── RENDERIZAR ANÁLISIS (con datos de Sheets) ────────────────
+  function renderAnalysis(stats) {
+    const total = Object.values(stats).reduce((s, v) => s + v.total, 0);
+    const section = document.getElementById('results-section');
+    const content = document.getElementById('results-content');
+    if (!section || !content) return;
+    section.style.display = 'block';
+    const countEl = document.getElementById('results-total-count');
+    if (countEl) countEl.textContent = total || '0';
+    let html = '';
+    ['energy','time','snack','natural'].forEach(type => {
+      const meta = SURVEY_META[type];
+      const ts = stats[type];
+      if (!ts) return;
+      html += `<div class="survey-block"><div class="survey-block-head"><span class="survey-block-name">${meta.icon} ${meta.label}</span><span class="survey-block-n">${ts.total} respuesta${ts.total !== 1 ? 's' : ''}</span></div>`;
+      Object.entries(meta.questions).forEach(([qKey, qMeta]) => {
+        const qData = ts.q[qKey] || {};
+        const qTotal = Object.values(qData).reduce((s,v)=>s+v,0);
+        if (qTotal === 0) return;
+        const maxVal = Math.max(...Object.values(qData), 0);
+        html += `<div class="q-block"><div class="q-text">${qMeta.text}</div>`;
+        Object.entries(qMeta.opts).forEach(([val, lbl]) => {
+          const cnt = qData[val] || 0;
+          const pct = qTotal > 0 ? Math.round((cnt/qTotal)*100) : 0;
+          const isWinner = cnt === maxVal && cnt > 0;
+          html += `<div class="bar-row"><div class="bar-lbl">${lbl}</div><div class="bar-track"><div class="bar-fill${isWinner ? ' winner' : ''}" style="width:${pct}%"></div></div><div class="bar-pct">${pct}%</div></div>`;
+        });
+        html += `</div>`;
+      });
+      html += `</div>`;
+    });
+    content.innerHTML = html || '<p style="font-family:Space Mono,monospace;font-size:11px;opacity:.5">Sin datos suficientes.</p>';
+  }
 
   function openSurvey(key) {
     document.getElementById('modal-' + key).classList.add('active');
@@ -470,6 +594,7 @@
     const answers = {};
     document.querySelectorAll('#modal-' + key + ' input[type="radio"]:checked').forEach(r => { answers[r.name] = r.value; });
     if (typeof gtag !== 'undefined') gtag('event', 'survey_submit', { survey_type: key, ...answers });
+    sendToSheets(key, answers);
     document.getElementById('submit-' + key).style.display = 'none';
     document.querySelectorAll('#modal-' + key + ' .modal-q').forEach(q => q.style.display = 'none');
     document.getElementById('thanks-' + key).style.display = 'block';
@@ -507,6 +632,40 @@
   document.querySelectorAll('.field').forEach(el => {
     el.addEventListener('keydown', e => { if (e.key === 'Enter') submitForm(); });
   });
+
+  async function showAnalysis(e) {
+    if (e) e.preventDefault();
+    const section = document.getElementById('results-section');
+    const content = document.getElementById('results-content');
+    section.style.display = 'block';
+    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">Cargando datos…</p>';
+    if (!SHEETS_WEBHOOK_URL) {
+      content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">URL del webhook no configurada.</p>';
+      return;
+    }
+    const cbName = '_fp_cb_' + Date.now();
+    const script = document.createElement('script');
+    const timeout = setTimeout(() => {
+      delete window[cbName];
+      script.remove();
+      content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">No se pudieron cargar los datos. Inténtalo de nuevo.</p>';
+    }, 8000);
+    window[cbName] = (data) => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+      renderAnalysis(data.stats || {});
+    };
+    script.onerror = () => {
+      clearTimeout(timeout);
+      delete window[cbName];
+      script.remove();
+      content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">No se pudieron cargar los datos. Inténtalo de nuevo.</p>';
+    };
+    script.src = SHEETS_WEBHOOK_URL + '?callback=' + cbName;
+    document.head.appendChild(script);
+  }
 </script>
 </body>
 </html>
