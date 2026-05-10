@@ -640,31 +640,13 @@
     section.style.display = 'block';
     section.scrollIntoView({ behavior: 'smooth', block: 'start' });
     content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">Cargando datos…</p>';
-    if (!SHEETS_WEBHOOK_URL) {
-      content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">URL del webhook no configurada.</p>';
-      return;
-    }
-    const cbName = '_fp_cb_' + Date.now();
-    const script = document.createElement('script');
-    const timeout = setTimeout(() => {
-      delete window[cbName];
-      script.remove();
-      content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">No se pudieron cargar los datos. Inténtalo de nuevo.</p>';
-    }, 8000);
-    window[cbName] = (data) => {
-      clearTimeout(timeout);
-      delete window[cbName];
-      script.remove();
+    try {
+      const res = await fetch('/api/survey-stats');
+      const data = await res.json();
       renderAnalysis(data.stats || {});
-    };
-    script.onerror = () => {
-      clearTimeout(timeout);
-      delete window[cbName];
-      script.remove();
+    } catch(err) {
       content.innerHTML = '<p style="font-family:\'Space Mono\',monospace;font-size:11px;color:rgba(60,20,0,0.5)">No se pudieron cargar los datos. Inténtalo de nuevo.</p>';
-    };
-    script.src = SHEETS_WEBHOOK_URL + '?callback=' + cbName;
-    document.head.appendChild(script);
+    }
   }
 </script>
 </body>
